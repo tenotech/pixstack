@@ -14,7 +14,16 @@ Measured on a production build, empty browser cache, same catalogue before and a
 | Image bytes per page | 5–88 KB | within ±10% |
 | Visual difference (full-page pixel diff, 5 pages × 2 devices) | | none (< 0.5/255 mean) |
 
-On the real production VPS, the slowest first-visit image was **5.9 s** before (a cold AVIF encode on a shared CPU).
+In production (shared VPS, measured the same day, empty browser cache, right after a deploy):
+
+| | Before | After |
+|---|---|---|
+| LCP, home page, desktop | 6.26 s | **1.07 s** |
+| Slowest image, home page, desktop | 5.95 s | **0.33 s** |
+| Slowest image, product page, mobile | 2.02 s | **0.42 s** |
+| Image bytes per page | 10–68 KB | within ±13% |
+
+Warm visits are unchanged (network-bound). The difference is that a deploy no longer resets anything: the files and nginx's copy survive it.
 
 Two causes, both removed:
 - `next/image` encodes on request.
@@ -142,4 +151,5 @@ Seed and reset scripts that recognised "demo" images by their URL prefix need an
 | Seed crashed: "Argument `not` must not be null" | Prisma rejects `{ not: null }` on required columns | Filter `{ startsWith: "/uploads/" }` etc. instead |
 | "Encountered two children with the same key" | Two rows share one ref (dedupe) | Don't key by URL alone |
 | Uploads fail after running a seed in Docker | Seed ran as root; app user can't write into root-owned dirs | `chown -R` the media tree to the app user after scripts |
+| The first deploy skipped the new "convert existing photos" step | The deploy script `git pull`s itself; bash keeps executing the old file | Run the conversion by hand after the first deploy (later deploys include it) |
 | Seed got slower (≈ 70 s for 34 photos on a laptop) | Every seed photo is encoded once at all widths | Expected. Later runs are instant (dedupe); keep demo images when resetting |

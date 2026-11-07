@@ -20,7 +20,7 @@ The API gets validated by migrating existing production apps (e-commerce storefr
 
 - [x] First adopter: a Next.js storefront (Docker, blue-green, shared nginx), string image columns via `ImageRef`, no schema migration. See [adoption.md](adoption.md) for the guide and the measured results.
 - [x] Pilot fixes: denser default width ladder, `isImageRef` returns `boolean`, `computeImageId`
-- [ ] Production results after deploy (first-visit image latency, bytes, CPU)
+- [x] Production results after deploy: first-visit LCP 6.26 s → 1.07 s, slowest image 5.95 s → 0.33 s (see [adoption.md](adoption.md))
 - [ ] `sweep`: reclaim stored images no record references (deletes are deferred because files are shared)
 
 - [ ] `pixstack/client`: `prepareUpload()` to downscale in the browser / Expo before upload
