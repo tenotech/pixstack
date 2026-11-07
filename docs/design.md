@@ -50,7 +50,7 @@ interface Variant {
 }
 ```
 
-About 1.4 KB for six widths × two formats (measured). That's small enough for a JSON column next to the row that uses it. *(v2 idea: drop `key`, which can be derived from id/width/format, to get ≈ 700 bytes.)*
+About 2.5 KB for the full ladder (12 widths × 2 formats, measured); the same image as an ImageRef is ~150 characters. Small enough for a JSON column next to the row that uses it. *(v2 idea: drop `key`, which can be derived from id/width/format, to roughly halve the JSON.)*
 
 ## ImageRef: the meta as a string
 

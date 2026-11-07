@@ -6,15 +6,66 @@ No SaaS, no image CDN bill, and no CPU spent on the request path.
 
 > Status: **0.3, pre-release.** The API may change before 1.0. See [docs/roadmap.md](docs/roadmap.md).
 
+## Results
+
+Measured on a production storefront (Next.js on a shared VPS), migrated from `next/image` to pixstack on the same day, with the same catalogue and an empty browser cache:
+
+![First visit after a deploy: home page LCP 6.26 s → 1.07 s, slowest image 5.95 s → 0.33 s (desktop) and 2.02 s → 0.42 s (mobile product page)](https://raw.githubusercontent.com/tenotech/pixstack/main/docs/assets/first-visit.svg)
+
+| | `next/image` | pixstack |
+|---|---|---|
+| Home page LCP, first visit after a deploy (desktop) | 6.26 s | **1.07 s** |
+| Slowest image on that page | 5.95 s | **0.33 s** |
+| Image bytes per page | 10–68 KB | same ±13 % |
+| Visual difference (pixel diff, 5 pages × 2 devices) | | none |
+| Image encodes while serving pages | every cache miss, again after every deploy | **zero** |
+
+On a single image: a 2.1 MB PNG hero becomes **88 KB** of AVIF at full width, **6 KB** at 320 px, plus a **25-byte** placeholder.
+
+The full write-up, with method and pitfalls, is in [docs/adoption.md](docs/adoption.md).
+
+## How it works
+
+```mermaid
+flowchart LR
+  U["Upload<br/>(any size, any claim)"] --> V{"Validate<br/>from the bytes"}
+  V -- "SVG, too big, not an image" --> X["Typed error<br/>(413 / 415)"]
+  V --> P["Decode once<br/>rotate · sRGB<br/>strip EXIF / GPS"]
+  P --> L["Width ladder<br/>160 … 2560 px<br/>× AVIF + WebP"]
+  P --> T["thumbhash<br/>+ dominant colour"]
+  L --> S[("Storage<br/>disk or S3 / R2<br/>img/&lt;hash&gt;/&lt;w&gt;.&lt;fmt&gt;")]
+  T --> M["ImageMeta<br/>(JSON or a URL-string ref)"]
+  S --> M
+  M --> DB[("Your database")]
 ```
-2.1 MB PNG hero (1945×809) → 88 KB AVIF full width · 6 KB at 320px · 25-byte placeholder
+
+Every file name is derived from the image's content hash, so a URL never changes meaning. That makes the rest simple:
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant B as Browser
+  participant N as nginx / CDN
+  participant A as App
+  Note over B,A: next/image: resize on request
+  B->>N: GET /_next/image?url=…&w=640
+  N->>A: cache miss (and every deploy empties the cache)
+  A->>A: decode + resize + encode AVIF: 0.5–6 s of CPU
+  A-->>B: image
+  Note over B,A: pixstack: files made at upload time
+  B->>N: GET /img/k3…/640.avif
+  N->>A: first request only
+  A-->>N: stored file, Cache-Control: immutable
+  N-->>B: image (every later request served by nginx)
 ```
 
-## Why
+## Why it's built this way
 
-`next/image` and similar optimizers resize **on request**. The first visitor waits while the server encodes, every cache miss costs CPU, and a public endpoint decodes arbitrary input (the Next.js optimizer had several critical CVEs in 2026). Hand-rolled upload code tends to be worse: originals served from Node, no dimensions stored, no placeholders, `Cache-Control` guessed.
-
-pixstack does the work **at upload time** and stores ready-made files under content-addressed URLs. Those URLs never change, so they can be cached forever and served by nginx or a CDN directly.
+- **Encode at upload, not on request.** Visitors never wait for an encoder. Deploys and restarts don't empty anything. The public endpoint never decodes untrusted input (the Next.js image optimizer had several critical CVEs in 2026).
+- **Content-addressed, immutable URLs.** Cache forever in the browser, nginx and the CDN, and never purge. Identical uploads are stored once.
+- **Everything the page needs travels with the image.** Width, height, the variant list and a placeholder sit in one small `ImageMeta`, so `<Img>` renders `srcset`, intrinsic size (no layout shift) and a blurred preview with no extra request.
+- **Fits existing apps.** If your images live in `imageUrl` string columns, an *ImageRef* packs the meta into a normal URL: no schema migration, and old `<img src>` code keeps working.
+- **Safe by default.** Format detected from bytes, pixel and size limits before decoding, metadata always stripped, SVG refused, originals never public, only known types served with `nosniff`.
 
 ## Install
 
@@ -152,10 +203,10 @@ location /_pixstack/ { internal; alias /data/uploads/; }
 2. Enforces `maxBytes` (25 MB), `maxPixels` (50 MP) and `maxDimension` (12 000 px) from the header, before decoding.
 3. Applies EXIF orientation, converts to sRGB and **strips all metadata** (GPS included).
 4. Hashes the original into an id. Re-uploading the same file returns the existing meta.
-5. Encodes widths `320 / 640 / 960 / 1280 / 1920 / 2560` (never upscaling) as AVIF q52 and WebP q78. Transparent images get higher alpha quality, and small PNG art is encoded losslessly.
+5. Encodes widths `160 … 2560` in ~1.25–1.5× steps (never upscaling) as AVIF q52 and WebP q78. Transparent images get higher alpha quality, and small PNG art is encoded losslessly.
 6. Computes a [thumbhash](https://evanw.github.io/thumbhash/) and the dominant colour.
 7. Stores `img/<id>/<w>.<fmt>` (public), `orig/<id>.<ext>` (private, for `reprocess()`) and `img/<id>/meta.json`.
-8. Returns an `ImageMeta` (~1.4 KB JSON) that you save next to your record.
+8. Returns an `ImageMeta` (~2.5 KB of JSON, or a ~150-character ImageRef string) that you save next to your record.
 
 ### Faster uploads: AVIF in the background
 

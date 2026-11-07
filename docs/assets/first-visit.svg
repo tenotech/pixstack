@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="300" viewBox="0 0 760 300" role="img" aria-labelledby="t d" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif">
+  <title id="t">First visit after a deploy: next/image vs pixstack</title>
+  <desc id="d">Production storefront on a shared VPS, empty browser cache. Home page LCP on desktop 6.26 s before, 1.07 s after. Slowest image on the desktop home page 5.95 s before, 0.33 s after. Slowest image on a mobile product page 2.02 s before, 0.42 s after.</desc>
+  <rect width="760" height="300" rx="12" fill="#ffffff"/>
+  <rect x="0.5" y="0.5" width="759" height="299" rx="12" fill="none" stroke="#e5e7eb"/>
+
+  <text x="28" y="38" font-size="17" font-weight="700" fill="#111827">First visit after a deploy</text>
+  <text x="28" y="60" font-size="13" fill="#4b5563">Production storefront, shared VPS, empty browser cache · lower is better</text>
+
+  <!-- legend -->
+  <rect x="520" y="27" width="12" height="12" rx="2" fill="#9ca3af"/>
+  <text x="538" y="37" font-size="12.5" fill="#374151">next/image</text>
+  <rect x="624" y="27" width="12" height="12" rx="2" fill="#2563eb"/>
+  <text x="642" y="37" font-size="12.5" fill="#374151">pixstack</text>
+
+  <!-- scale: 0–7 s over 400 px, bars start at x=270 -->
+  <g stroke="#f3f4f6">
+    <line x1="270" y1="80" x2="270" y2="262"/>
+    <line x1="384.3" y1="80" x2="384.3" y2="262"/>
+    <line x1="498.6" y1="80" x2="498.6" y2="262"/>
+    <line x1="612.9" y1="80" x2="612.9" y2="262"/>
+  </g>
+  <g font-size="11" fill="#9ca3af" text-anchor="middle">
+    <text x="270" y="280">0 s</text>
+    <text x="384.3" y="280">2 s</text>
+    <text x="498.6" y="280">4 s</text>
+    <text x="612.9" y="280">6 s</text>
+  </g>
+
+  <!-- row 1 -->
+  <text x="28" y="104" font-size="13.5" font-weight="600" fill="#111827">Home page LCP</text>
+  <text x="28" y="121" font-size="12" fill="#6b7280">desktop</text>
+  <rect x="270" y="92" width="357.7" height="15" rx="3" fill="#9ca3af"/>
+  <text x="634" y="104" font-size="12.5" fill="#374151">6.26 s</text>
+  <rect x="270" y="111" width="61.1" height="15" rx="3" fill="#2563eb"/>
+  <text x="338" y="123" font-size="12.5" font-weight="700" fill="#1d4ed8">1.07 s</text>
+
+  <!-- row 2 -->
+  <text x="28" y="164" font-size="13.5" font-weight="600" fill="#111827">Slowest image</text>
+  <text x="28" y="181" font-size="12" fill="#6b7280">desktop home page</text>
+  <rect x="270" y="152" width="340" height="15" rx="3" fill="#9ca3af"/>
+  <text x="617" y="164" font-size="12.5" fill="#374151">5.95 s</text>
+  <rect x="270" y="171" width="18.9" height="15" rx="3" fill="#2563eb"/>
+  <text x="295" y="183" font-size="12.5" font-weight="700" fill="#1d4ed8">0.33 s</text>
+
+  <!-- row 3 -->
+  <text x="28" y="224" font-size="13.5" font-weight="600" fill="#111827">Slowest image</text>
+  <text x="28" y="241" font-size="12" fill="#6b7280">mobile product page</text>
+  <rect x="270" y="212" width="115.4" height="15" rx="3" fill="#9ca3af"/>
+  <text x="392" y="224" font-size="12.5" fill="#374151">2.02 s</text>
+  <rect x="270" y="231" width="24" height="15" rx="3" fill="#2563eb"/>
+  <text x="301" y="243" font-size="12.5" font-weight="700" fill="#1d4ed8">0.42 s</text>
+</svg>
