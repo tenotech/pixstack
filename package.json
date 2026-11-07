@@ -1,0 +1,100 @@
+{
+  "name": "pixstack",
+  "version": "0.2.0",
+  "description": "Self-hosted image pipeline: validate, compress to AVIF/WebP width ladders, store, serve with immutable caching, render with srcset and thumbhash placeholders.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tenotech/pixstack.git"
+  },
+  "homepage": "https://github.com/tenotech/pixstack#readme",
+  "bugs": "https://github.com/tenotech/pixstack/issues",
+  "type": "module",
+  "sideEffects": false,
+  "engines": {
+    "node": ">=20"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./meta": {
+      "types": "./dist/meta.d.ts",
+      "default": "./dist/meta.js"
+    },
+    "./storage": {
+      "types": "./dist/storage/index.d.ts",
+      "default": "./dist/storage/index.js"
+    },
+    "./storage/s3": {
+      "types": "./dist/storage/s3.d.ts",
+      "default": "./dist/storage/s3.js"
+    },
+    "./server": {
+      "types": "./dist/server.d.ts",
+      "default": "./dist/server.js"
+    },
+    "./react": {
+      "types": "./dist/react.d.ts",
+      "default": "./dist/react.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "check": "pnpm check:private && pnpm typecheck && pnpm test && pnpm build",
+    "check:private": "node scripts/check-private.mjs"
+  },
+  "peerDependencies": {
+    "@aws-sdk/client-s3": "^3",
+    "react": ">=18",
+    "sharp": ">=0.33"
+  },
+  "peerDependenciesMeta": {
+    "@aws-sdk/client-s3": {
+      "optional": true
+    },
+    "react": {
+      "optional": true
+    },
+    "sharp": {
+      "optional": true
+    }
+  },
+  "dependencies": {
+    "thumbhash": "^0.1.1"
+  },
+  "keywords": [
+    "image",
+    "sharp",
+    "avif",
+    "webp",
+    "srcset",
+    "thumbhash",
+    "upload",
+    "self-hosted",
+    "nextjs"
+  ],
+  "devDependencies": {
+    "@aws-sdk/client-s3": "^3.1164.0",
+    "@types/node": "^24.19.2",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "sharp": "0.35.5",
+    "tsup": "^9.0.0",
+    "typescript": "^5.9.3",
+    "vitest": "^5.1.0"
+  }
+}

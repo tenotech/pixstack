@@ -1,0 +1,10 @@
+node_modules
+dist
+coverage
+*.log
+.DS_Store
+tests/.tmp
+
+# Private notes, client project names, migration plans. Never published.
+.private/
+CLAUDE.local.md
