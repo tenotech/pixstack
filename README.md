@@ -20,6 +20,8 @@ Measured on a production storefront (Next.js on a shared VPS), migrated from `ne
 | Visual difference (pixel diff, 5 pages × 2 devices) | | none |
 | Image encodes while serving pages | every cache miss, again after every deploy | **zero** |
 
+<sub>Method: Chrome via Playwright, new browser context per page (empty cache), desktop 1440 px and mobile 412 px at 2.6× pixel density. On the home page the LCP element is the hero photo in both versions. Network variance from the test machine is about ±0.3 s. "Slowest image" is the longest time-to-first-byte of any image on the page.</sub>
+
 On a single image: a 2.1 MB PNG hero becomes **88 KB** of AVIF at full width, **6 KB** at 320 px, plus a **25-byte** placeholder.
 
 The full write-up, with method and pitfalls, is in [docs/adoption.md](docs/adoption.md).
