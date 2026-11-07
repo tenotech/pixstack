@@ -226,8 +226,12 @@ export function parseImageRef(ref: unknown): ParsedImageRef | null {
   return { meta, base: ref.slice(0, ref.length - whole.length + (whole.startsWith("/") ? 1 : 0)) };
 }
 
-/** True when `value` is a well-formed ref string. */
-export function isImageRef(value: unknown): value is string {
+/**
+ * True when `value` is a well-formed ref string. A plain boolean, not a type
+ * guard: the values tested are usually already `string`, and a `value is string`
+ * guard would narrow the other branch (a legacy URL) to `never`.
+ */
+export function isImageRef(value: unknown): boolean {
   return parseImageRef(value) !== null;
 }
 

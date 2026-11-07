@@ -70,5 +70,8 @@ describe("ImageRef", () => {
     ];
     for (const b of bad) expect(isImageRef(b), String(b).slice(0, 60)).toBe(false);
     expect(isImageRef(good)).toBe(true);
+    // Not a type guard: the false branch of a string stays a string.
+    const legacy: string = "/uploads/a.webp";
+    if (!isImageRef(legacy)) expect(legacy.startsWith("/uploads/")).toBe(true);
   });
 });
