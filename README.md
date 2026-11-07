@@ -99,6 +99,8 @@ await db.category.update({ where: { id }, data: { imageUrl: ref } });
 
 Old code that does `<img src={imageUrl}>` keeps working, because the ref points at a real 1280px WebP. Use `isImageRef(url)` to tell refs apart from legacy URLs while you migrate.
 
+> **Identical files share one URL.** pixstack names files by their content, so the same photo uploaded twice (say, one shot used for two colour variants) gives the same ref. Don't use the image URL alone as a React `key`, and don't delete stored files when one record drops a ref: another record may still use it. Reclaim unused files with a sweep instead.
+
 ## Store on S3 / Cloudflare R2
 
 ```ts
@@ -189,6 +191,7 @@ Errors are `PixstackError`s with a `code` (`TOO_LARGE`, `TOO_MANY_PIXELS`, `UNSU
 
 - [Architecture](docs/architecture.md): pipeline, modules, storage layout, serving modes
 - [Design](docs/design.md): `ImageMeta`, defaults and why, API, decisions
+- [Adoption guide](docs/adoption.md): migrating an existing app (string image columns, `next/image`, Docker)
 - [Roadmap](docs/roadmap.md): what's done and what's next
 
 ## Development

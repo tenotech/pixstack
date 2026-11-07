@@ -18,6 +18,11 @@ These are targets, not promises. Each phase ends with something usable in a real
 
 The API gets validated by migrating existing production apps (e-commerce storefronts, a booking platform, a Hono API with an Expo client) off hand-rolled sharp code.
 
+- [x] First adopter: a Next.js storefront (Docker, blue-green, shared nginx), string image columns via `ImageRef`, no schema migration. See [adoption.md](adoption.md) for the guide and the measured results.
+- [x] Pilot fixes: denser default width ladder, `isImageRef` returns `boolean`, `computeImageId`
+- [ ] Production results after deploy (first-visit image latency, bytes, CPU)
+- [ ] `sweep`: reclaim stored images no record references (deletes are deferred because files are shared)
+
 - [ ] `pixstack/client`: `prepareUpload()` to downscale in the browser / Expo before upload
 - [ ] `pixstack/next`: `next/image` loader that points at stored variants
 - [ ] Node `http` adapter (Express / Fastify)
