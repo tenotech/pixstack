@@ -115,6 +115,122 @@ export function pickVariant(meta: ImageMeta, targetWidth: number, format?: Outpu
   return list.find((v) => v.width >= targetWidth) ?? list[list.length - 1];
 }
 
+// ── Image refs ─────────────────────────────────────────────────────────────
+//
+// An ImageRef packs what rendering needs into one URL string, for apps that
+// store images in existing string columns instead of a JSON column:
+//
+//   /img/<id>/1280.webp?pv=1&w=1945&h=809&l=320.640.960.1280.1920&f=aw&s=j&c=a38668&t=<thumbhash>
+//
+// The path is a real variant, so code that treats the ref as a plain URL
+// (an <img src>, an e-mail, og:image) still shows the image. Parsing is strict
+// because refs are read back from the database: anything odd returns null.
+// A parsed ref has no per-variant byte sizes (bytes = 0) and no `original`;
+// the full meta stays in storage (`processor.getMeta(id)`).
+
+const FORMAT_CODE: Record<OutputFormat, string> = { avif: "a", webp: "w" };
+const CODE_FORMAT: Record<string, OutputFormat> = { a: "avif", w: "webp" };
+const SOURCE_CODE: Record<SourceFormat, string> = {
+  jpeg: "j", png: "p", webp: "w", avif: "a", heif: "h", gif: "g", tiff: "t", svg: "s",
+};
+const CODE_SOURCE: Record<string, SourceFormat> = Object.fromEntries(
+  Object.entries(SOURCE_CODE).map(([k, v]) => [v, k as SourceFormat]),
+);
+
+const REF_PATH = /(?:^|\/)img\/([a-z2-7]{16})\/([1-9][0-9]{0,4})\.(avif|webp)\?(.+)$/;
+
+const toB64Url = (b64: string) => b64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+const fromB64Url = (s: string) => {
+  const b64 = s.replace(/-/g, "+").replace(/_/g, "/");
+  return b64 + "=".repeat((4 - (b64.length % 4)) % 4);
+};
+
+/** Encode a meta as a ref string. `urlFor` sets the URL base (default "/img/…"). */
+export function toImageRef(meta: ImageMeta, urlFor: UrlFor = defaultUrlFor): string {
+  const fallback = pickVariant(meta, 1280);
+  if (!fallback) throw new Error(`ImageMeta ${meta.id} has no variants`);
+  const widths = [...new Set(meta.variants.map((v) => Number(/\/(\d+)\.\w+$/.exec(v.key)![1])))].sort((a, b) => a - b);
+  const q = new URLSearchParams({
+    pv: "1",
+    w: String(meta.width),
+    h: String(meta.height),
+    l: widths.join("."),
+    f: formatsOf(meta).map((f) => FORMAT_CODE[f]).join(""),
+    s: SOURCE_CODE[meta.format],
+    c: meta.color.replace(/^#/, ""),
+    t: toB64Url(meta.thumbhash),
+  });
+  if (meta.alpha) q.set("a", "1");
+  if (meta.animated) q.set("n", "1");
+  if (meta.pending?.length) q.set("p", meta.pending.map((f) => FORMAT_CODE[f]).join(""));
+  return `${urlFor(fallback.key)}?${q.toString()}`;
+}
+
+export interface ParsedImageRef {
+  meta: ImageMeta;
+  /** Everything before "img/<id>/…" in the ref, e.g. "/" or "https://cdn.example.com/". */
+  base: string;
+}
+
+/** Decode a ref string. Returns null for anything that isn't a well-formed ref. */
+export function parseImageRef(ref: unknown): ParsedImageRef | null {
+  if (typeof ref !== "string" || ref.length > 2048) return null;
+  const m = REF_PATH.exec(ref);
+  if (!m) return null;
+  const [whole, id, , , query] = m as unknown as [string, string, string, string, string];
+  const q = new URLSearchParams(query);
+  if (q.get("pv") !== "1") return null;
+
+  const width = Number(q.get("w"));
+  const height = Number(q.get("h"));
+  const ok = (n: number) => Number.isInteger(n) && n > 0 && n <= 100_000;
+  if (!ok(width) || !ok(height)) return null;
+
+  const widths = (q.get("l") ?? "").split(".").map(Number);
+  if (widths.length === 0 || widths.length > 24 || !widths.every((w) => ok(w) && w <= width)) return null;
+
+  const formats = [...(q.get("f") ?? "")].map((c) => CODE_FORMAT[c]);
+  const pending = [...(q.get("p") ?? "")].map((c) => CODE_FORMAT[c]);
+  if (formats.length === 0 || formats.includes(undefined as never) || pending.includes(undefined as never)) return null;
+
+  const format = CODE_SOURCE[q.get("s") ?? ""];
+  const color = q.get("c") ?? "";
+  const thumb = q.get("t") ?? "";
+  if (!format || !/^[0-9a-f]{6}$/.test(color) || !/^[A-Za-z0-9_-]{4,64}$/.test(thumb)) return null;
+
+  const variants: Variant[] = widths.flatMap((w) =>
+    (formats as OutputFormat[]).map((f) => ({
+      key: variantKey(id, w, f),
+      format: f,
+      width: w,
+      height: Math.max(1, Math.round((w * height) / width)),
+      bytes: 0,
+    })),
+  );
+  variants.sort((a, b) => a.width - b.width || FORMAT_ORDER[a.format] - FORMAT_ORDER[b.format]);
+
+  const meta: ImageMeta = {
+    v: 1,
+    id,
+    width,
+    height,
+    format,
+    bytes: 0,
+    alpha: q.get("a") === "1",
+    animated: q.get("n") === "1",
+    color: `#${color}`,
+    thumbhash: fromB64Url(thumb),
+    variants,
+    ...(pending.length ? { pending: pending as OutputFormat[] } : {}),
+  };
+  return { meta, base: ref.slice(0, ref.length - whole.length + (whole.startsWith("/") ? 1 : 0)) };
+}
+
+/** True when `value` is a well-formed ref string. */
+export function isImageRef(value: unknown): value is string {
+  return parseImageRef(value) !== null;
+}
+
 /** Type guard for values read back from a JSON column. */
 export function isImageMeta(value: unknown): value is ImageMeta {
   if (!value || typeof value !== "object") return false;

@@ -4,7 +4,7 @@
 
 No SaaS, no image CDN bill, and no CPU spent on the request path.
 
-> Status: **0.2, pre-release.** The API may change before 1.0. See [docs/roadmap.md](docs/roadmap.md).
+> Status: **0.3, pre-release.** The API may change before 1.0. See [docs/roadmap.md](docs/roadmap.md).
 
 ```
 2.1 MB PNG hero (1945×809) → 88 KB AVIF full width · 6 KB at 320px · 25-byte placeholder
@@ -82,6 +82,22 @@ This renders:
        style="background-color:#a38668;background-image:url(data:image/png;base64,…);…">
 </picture>
 ```
+
+## Already have `imageUrl` string columns? Use refs
+
+If you don't want a JSON column, store an **ImageRef** instead. It's a normal image URL that also carries the meta:
+
+```ts
+import { toImageRef } from "pixstack/meta";
+
+const ref = toImageRef(await images.ingest(file));
+// "/img/k3…/1280.webp?pv=1&w=1945&h=809&l=320.640.960.1280.1920&f=aw&s=j&c=a38668&t=…"
+await db.category.update({ where: { id }, data: { imageUrl: ref } });
+
+<Img image={category.imageUrl} alt={category.name} sizes="50vw" />  // same output as with the meta
+```
+
+Old code that does `<img src={imageUrl}>` keeps working, because the ref points at a real 1280px WebP. Use `isImageRef(url)` to tell refs apart from legacy URLs while you migrate.
 
 ## Store on S3 / Cloudflare R2
 

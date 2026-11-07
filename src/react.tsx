@@ -4,7 +4,27 @@
  */
 import type { CSSProperties, ImgHTMLAttributes } from "react";
 import { thumbHashToDataURL } from "thumbhash";
-import { defaultUrlFor, formatsOf, OUTPUT_MIME, pickVariant, srcSet, type ImageMeta, type UrlFor } from "./meta.js";
+import {
+  defaultUrlFor,
+  formatsOf,
+  OUTPUT_MIME,
+  parseImageRef,
+  pickVariant,
+  srcSet,
+  type ImageMeta,
+  type UrlFor,
+} from "./meta.js";
+
+/** An ImageMeta object, or an ImageRef string (see `toImageRef`). */
+export type ImageSource = ImageMeta | string;
+
+function resolve(image: ImageSource, urlFor: UrlFor | undefined): { meta: ImageMeta; urlFor: UrlFor } {
+  if (typeof image !== "string") return { meta: image, urlFor: urlFor ?? defaultUrlFor };
+  const parsed = parseImageRef(image);
+  if (!parsed) throw new TypeError(`pixstack: not an image ref: ${image.slice(0, 80)}`);
+  const { base } = parsed;
+  return { meta: parsed.meta, urlFor: urlFor ?? ((key) => `${base}${key}`) };
+}
 
 export type PlaceholderMode = "thumbhash" | "color" | "none";
 
@@ -73,8 +93,8 @@ export function placeholderStyle(meta: ImageMeta, mode: PlaceholderMode = "thumb
 }
 
 /** Framework-free props; use with your own <img>/<picture> or next/image `unoptimized`. */
-export function getImageProps(meta: ImageMeta, options: ImageOptions): ImageProps {
-  const urlFor = options.urlFor ?? defaultUrlFor;
+export function getImageProps(image: ImageSource, options: ImageOptions): ImageProps {
+  const { meta, urlFor } = resolve(image, options.urlFor);
   const sizes = options.sizes ?? "100vw";
   const formats = formatsOf(meta);
   const fallbackFormat = formats.includes("webp") ? "webp" : formats[formats.length - 1];
@@ -104,7 +124,8 @@ export function getImageProps(meta: ImageMeta, options: ImageOptions): ImageProp
 
 export type ImgProps = ImageOptions &
   Omit<ImgHTMLAttributes<HTMLImageElement>, "src" | "srcSet" | "sizes" | "width" | "height" | "alt" | "placeholder"> & {
-    image: ImageMeta;
+    /** ImageMeta, or an ImageRef string stored in a plain text column. */
+    image: ImageSource;
   };
 
 /**

@@ -1,6 +1,6 @@
 # pixstack design
 
-Status: **0.2 draft**. The parts marked *(phase 2/3)* are designed but not built yet. See [roadmap.md](roadmap.md).
+Status: **0.3 draft**. The parts marked *(phase 2/3)* are designed but not built yet. See [roadmap.md](roadmap.md).
 
 ## Goals
 
@@ -51,6 +51,31 @@ interface Variant {
 ```
 
 About 1.4 KB for six widths × two formats (measured). That's small enough for a JSON column next to the row that uses it. *(v2 idea: drop `key`, which can be derived from id/width/format, to get ≈ 700 bytes.)*
+
+## ImageRef: the meta as a string
+
+Many existing apps already store images in a `String` column (`imageUrl`). Moving to a JSON column means a migration on every table and changes to every query. An **ImageRef** packs what rendering needs into one URL instead:
+
+```
+/img/<id>/1280.webp?pv=1&w=1945&h=809&l=320.640.960.1280.1920&f=aw&s=j&c=a38668&t=<thumbhash, base64url>
+```
+
+| Param | Meaning |
+|---|---|
+| path | A real variant (the ≈1280px WebP). Code that treats the ref as a plain URL still shows the image. |
+| `pv` | Ref version (1) |
+| `w`, `h` | Source dimensions. Variant heights are recomputed from these (±1px). |
+| `l` | Width ladder |
+| `f` | Formats present: `a` avif, `w` webp |
+| `p` | Pending formats (from `defer`), optional |
+| `s` | Source format code |
+| `c`, `t` | Dominant colour, thumbhash |
+| `a`, `n` | Alpha / animated flags, optional |
+
+- About 150–190 characters.
+- `parseImageRef` is strict, because refs come back from the database: bounded length, the id pattern, integer sizes, a known set of codes, a hex colour, base64url. Anything else returns `null`.
+- A parsed ref has `bytes = 0` and no `original`. The full meta stays in storage (`getMeta(id)`).
+- `<Img image={ref}>` works directly, and keeps a CDN base when the ref has one.
 
 ## Processing defaults (`createImageProcessor`)
 
@@ -185,4 +210,5 @@ A custom `next/image` loader for projects that want to keep `<Image>`: `src` = `
 | D5 | thumbhash | BlurHash (no alpha, needs aspect separately), base64 WebP LQIP (~20× larger) |
 | D6 | Web-standard `Request → Response` handler | Express/Node `req,res`: doesn't run in Next route handlers, Hono, Bun |
 | D7 | Single npm package, subpath exports | `@pixstack/*` monorepo: more install friction for users; split later if needed |
+| D9 | ImageRef string next to the JSON meta | JSON column only: forces a schema migration on adopters with string image columns. A lookup by id at render time: async, doesn't work in client components. |
 | D8 | sharp as peer dependency | Bundled: version conflicts with apps that already use sharp |

@@ -2,7 +2,7 @@
 
 These are targets, not promises. Each phase ends with something usable in a real app.
 
-## 0.1–0.2: core ✅
+## 0.1–0.3: core ✅
 
 - [x] `pixstack/meta`: `ImageMeta` contract, width ladder, `srcSet`, `pickVariant`
 - [x] `pixstack`: validation from bytes, pixel/size/dimension limits, EXIF rotation and stripping, AVIF + WebP ladder, thumbhash, dominant colour, content-hash dedupe, typed errors, concurrency limit
@@ -12,8 +12,9 @@ These are targets, not promises. Each phase ends with something usable in a real
 - [x] `pixstack/storage/s3`: AWS S3, Cloudflare R2, MinIO (tested against S3Mock)
 - [x] `pixstack/server`: Web-standard handler (stream, ETag/304, Range, immutable, nosniff, X-Accel-Redirect), signed URLs
 - [x] `pixstack/react`: `<Img>`, `getImageProps`, thumbhash placeholder
+- [x] 0.3: `ImageRef`. The meta packed in a URL string, for apps with string image columns (no schema migration); `<Img>` accepts it
 
-## 0.3: first production adopters
+## 0.4: first production adopters
 
 The API gets validated by migrating existing production apps (e-commerce storefronts, a booking platform, a Hono API with an Expo client) off hand-rolled sharp code.
 
@@ -24,7 +25,7 @@ The API gets validated by migrating existing production apps (e-commerce storefr
 - [ ] `examples/next` (App Router) and `examples/hono`
 - [ ] Benchmark script over a public-domain photo set: bytes and SSIM per format/quality, to tune defaults with data
 
-## 0.4: tooling
+## 0.5: tooling
 
 - [ ] CLI: `pixstack backfill` (adopt existing uploads), `complete` (finish images left `pending`), `reprocess`, `audit` (orphans, missing variants), `sweep`
 - [ ] Focal-point crops (`crop` hints) and art direction
