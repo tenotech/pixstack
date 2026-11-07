@@ -33,7 +33,7 @@ export interface AvifSettings {
 
 export interface ProcessorOptions {
   storage: Storage;
-  /** Target widths in px. Default: 320, 640, 960, 1280, 1920, 2560. */
+  /** Target widths in px. Default: DEFAULT_WIDTHS (160 … 2560, steps of ~1.25–1.5×). */
   widths?: readonly number[];
   /** Output formats, best first. Default: ["avif", "webp"]. */
   formats?: readonly OutputFormat[];

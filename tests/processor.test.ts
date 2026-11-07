@@ -26,7 +26,7 @@ describe("ingest", () => {
     expect(Buffer.from(meta.thumbhash, "base64").length).toBeLessThan(40);
 
     const widths = [...new Set(meta.variants.map((v) => v.width))];
-    expect(widths).toEqual([320, 640, 960, 1280, 1920]); // 2000 is within 10% of 1920
+    expect(widths).toEqual([160, 240, 320, 400, 480, 640, 800, 960, 1280, 1600, 1920]); // 2000 is within 10% of 1920
     expect(meta.variants.map((v) => v.format).slice(0, 2)).toEqual(["avif", "webp"]);
     for (const v of meta.variants) {
       expect(v.height).toBe(v.width / 2);
@@ -49,7 +49,7 @@ describe("ingest", () => {
       await makeJpeg(400, 200, { orientation: 6 }),
     );
     expect([meta.width, meta.height]).toEqual([200, 400]);
-    const out = await sharp(storage.entries.get(meta.variants[0]!.key)!.data).metadata();
+    const out = await sharp(storage.entries.get(meta.variants.at(-1)!.key)!.data).metadata();
     expect([out.width, out.height]).toEqual([200, 400]);
     expect(out.exif).toBeUndefined();
     expect(out.orientation).toBeUndefined();
@@ -78,7 +78,7 @@ describe("ingest", () => {
     const storage = memoryStorage();
     const meta = await createImageProcessor({ storage }).ingest(await makePng(300, 300));
     expect(meta.alpha).toBe(true);
-    expect(meta.variants.map((v) => v.width)).toEqual([300, 300]);
+    expect(meta.variants.map((v) => v.width)).toEqual([160, 160, 240, 240, 300, 300]);
     const out = await sharp(storage.entries.get(meta.variants.find((v) => v.format === "webp")!.key)!.data).metadata();
     expect(out.hasAlpha).toBe(true);
   });
@@ -146,9 +146,9 @@ describe("defer / complete", () => {
 
     const done = await images.complete(meta);
     expect(done.pending).toBeUndefined();
-    expect(done.variants.map((v) => `${v.width}.${v.format}`)).toEqual([
-      "320.avif", "320.webp", "640.avif", "640.webp", "960.avif", "960.webp",
-    ]);
+    expect(done.variants.map((v) => `${v.width}.${v.format}`)).toEqual(
+      [160, 240, 320, 400, 480, 640, 800, 960].flatMap((w) => [`${w}.avif`, `${w}.webp`]),
+    );
     for (const v of done.variants) expect(storage.entries.get(v.key)?.data.byteLength).toBe(v.bytes);
     expect(await images.getMeta(meta.id)).toEqual(done);
 

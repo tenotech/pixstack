@@ -4,15 +4,15 @@ import { base32, createLimiter } from "../src/util";
 
 describe("widthLadder", () => {
   it("drops steps above the source and adds the source width", () => {
-    expect(widthLadder(1200)).toEqual([320, 640, 960, 1200]);
-    expect(widthLadder(960)).toEqual([320, 640, 960]);
+    expect(widthLadder(1200)).toEqual([160, 240, 320, 400, 480, 640, 800, 960, 1200]);
+    expect(widthLadder(960)).toEqual([160, 240, 320, 400, 480, 640, 800, 960]);
   });
   it("skips a near-duplicate source width (within 10% of the last step)", () => {
-    expect(widthLadder(1000)).toEqual([320, 640, 960]);
-    expect(widthLadder(1945)).toEqual([320, 640, 960, 1280, 1920]);
+    expect(widthLadder(1000)).toEqual([160, 240, 320, 400, 480, 640, 800, 960]);
+    expect(widthLadder(1945)).toEqual([160, 240, 320, 400, 480, 640, 800, 960, 1280, 1600, 1920]);
   });
   it("caps at the largest step for huge sources", () => {
-    expect(widthLadder(6000)).toEqual([320, 640, 960, 1280, 1920, 2560]);
+    expect(widthLadder(6000)).toEqual([160, 240, 320, 400, 480, 640, 800, 960, 1280, 1600, 1920, 2560]);
   });
   it("returns the source width for tiny images", () => {
     expect(widthLadder(120)).toEqual([120]);

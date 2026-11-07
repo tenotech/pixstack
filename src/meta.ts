@@ -43,7 +43,12 @@ export interface ImageMeta {
   alt?: string;
 }
 
-export const DEFAULT_WIDTHS = [320, 640, 960, 1280, 1920, 2560] as const;
+/**
+ * Steps of ~1.25–1.5×. A sparser ladder (320/640/960…) made the browser download
+ * up to 2.8× the pixels for small slots (a 300px card picked 640): measured on a
+ * production storefront, product pages were ~2× heavier than with next/image.
+ */
+export const DEFAULT_WIDTHS = [160, 240, 320, 400, 480, 640, 800, 960, 1280, 1600, 1920, 2560] as const;
 
 export const OUTPUT_MIME: Record<OutputFormat, string> = {
   avif: "image/avif",

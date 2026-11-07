@@ -81,7 +81,7 @@ Many existing apps already store images in a `String` column (`imageUrl`). Movin
 
 | Option | Default | Why |
 |---|---|---|
-| `widths` | `[320, 640, 960, 1280, 1920, 2560]` | Covers 1×/2× of a phone (360–430 CSS px), a card, a laptop and a retina hero. Widths above the source are skipped. The source width is added only when it is >10% wider than the last step that fits, which avoids near-duplicates like 1920 + 1945. |
+| `widths` | `[160, 240, 320, 400, 480, 640, 800, 960, 1280, 1600, 1920, 2560]` | Steps of ~1.25–1.5×, from thumbnails to a retina hero. The first pilot used `320/640/960/1280/1920/2560` and product pages came out ~2× heavier than with `next/image`: a ~300 px card had to download the 640 px file. Small widths are cheap to encode and store. Widths above the source are skipped. The source width is added only when it is >10% wider than the last step that fits, which avoids near-duplicates like 1920 + 1945. |
 | `formats` | `["avif", "webp"]` | AVIF is about 20–30% smaller than WebP at the same quality, and WebP is the fallback (supported by 97%+ of browsers). JPEG is not produced. |
 | `webp` | `{ quality: 78, effort: 4, smartSubsample: true }` | q78 is visually lossless on photos at typical display sizes, and `smartSubsample` keeps red/blue edges sharp. |
 | `avif` | `{ quality: 52, effort: 4, chromaSubsampling: "4:2:0" }` | AVIF's quality scale is lower than WebP's, and q≈50 ≈ WebP q78. `effort` 4 is about 5× faster than 9 with ~3% larger files. |
