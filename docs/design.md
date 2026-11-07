@@ -186,7 +186,7 @@ Signed URLs: `signUrl("/img/orig/abc.jpg", { secret, expiresIn: 3600 })` → `?e
 </picture>
 ```
 
-- `priority` → `loading="eager"` + `fetchpriority="high"`, and no placeholder background (the LCP image should paint itself).
+- `priority` → `loading="eager"` + `fetchpriority="high"`, no placeholder background (the LCP image should paint itself), and a `<link rel="preload" as="image" imagesrcset … type="image/avif">` in `<head>` through React 19's `preload()`, as `next/image` does. The preload is typed, so a browser without AVIF skips it instead of downloading two formats (0.3.1; no-op on React 18).
 - `width`/`height` always come from the meta, so the browser reserves the aspect ratio. CSS can still set `width:100%; height:auto`.
 - The placeholder is the thumbhash decoded to a ~32px PNG data URL (≈ 300–600 bytes inline) over the dominant colour. Pass `placeholder="color"` for colour only, or `"none"`.
 - `urlFor(key)` defaults to `/img/<key without "img/">`. Override it for a CDN (`https://cdn.example.com/${key}`).

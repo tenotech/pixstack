@@ -14,5 +14,5 @@ export default defineConfig({
   sourcemap: true,
   clean: true,
   target: "node20",
-  external: ["sharp", "react", "react/jsx-runtime", "@aws-sdk/client-s3"],
+  external: ["sharp", "react", "react-dom", "react/jsx-runtime", "@aws-sdk/client-s3"],
 });

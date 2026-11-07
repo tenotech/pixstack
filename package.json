@@ -1,6 +1,6 @@
 {
   "name": "pixstack",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Self-hosted image pipeline: validate, compress to AVIF/WebP width ladders, store, serve with immutable caching, render with srcset and thumbhash placeholders.",
   "license": "MIT",
   "repository": {
@@ -58,6 +58,7 @@
   "peerDependencies": {
     "@aws-sdk/client-s3": "^3",
     "react": ">=18",
+    "react-dom": ">=18",
     "sharp": ">=0.33"
   },
   "peerDependenciesMeta": {
@@ -65,6 +66,9 @@
       "optional": true
     },
     "react": {
+      "optional": true
+    },
+    "react-dom": {
       "optional": true
     },
     "sharp": {

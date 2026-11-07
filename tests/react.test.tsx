@@ -1,4 +1,4 @@
-import { renderToStaticMarkup } from "react-dom/server";
+import { renderToStaticMarkup, renderToString } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { getImageProps, Img } from "../src/react";
 import type { ImageMeta } from "../src/meta";
@@ -46,6 +46,18 @@ describe("<Img>", () => {
     expect(html).toContain('loading="eager"');
     expect(html).toContain('fetchPriority="high"');
     expect(html).not.toContain("background");
+  });
+
+  it("priority images are preloaded (AVIF, typed) like next/image does; others are not", () => {
+    const withPriority = renderToString(<Img image={meta} alt="" sizes="100vw" priority />);
+    const link = /<link[^>]*rel="preload"[^>]*>/.exec(withPriority)?.[0] ?? "";
+    expect(link).toContain('as="image"');
+    expect(link).toContain('type="image/avif"');
+    expect(link).toContain('fetchPriority="high"');
+    expect(link).toMatch(/imageSrcSet="[^"]*640\.avif 640w/);
+    expect(link).toContain('imageSizes="100vw"');
+
+    expect(renderToString(<Img image={meta} alt="" sizes="100vw" />)).not.toContain('rel="preload"');
   });
 
   it("renders a bare <img> when only one format exists, and honours urlFor", () => {
