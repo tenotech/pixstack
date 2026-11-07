@@ -1,4 +1,5 @@
 export {
+  computeImageId,
   createImageProcessor,
   type AvifSettings,
   type ImageProcessor,

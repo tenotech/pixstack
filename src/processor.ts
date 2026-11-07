@@ -196,6 +196,15 @@ async function encodeVariant(ctx: EncodeContext, w: number, f: OutputFormat): Pr
   };
 }
 
+/**
+ * The id `ingest()` gives these bytes (16-char base32 SHA-256 prefix), without
+ * processing anything. Use it to recognise a known file, e.g. "is this stored
+ * image one of our seed photos?".
+ */
+export function computeImageId(bytes: Uint8Array): string {
+  return base32(createHash("sha256").update(bytes).digest()).slice(0, 16);
+}
+
 export function createImageProcessor(options: ProcessorOptions): ImageProcessor {
   const { storage } = options;
   const limit = createLimiter(options.concurrency ?? 2);
@@ -265,7 +274,7 @@ export function createImageProcessor(options: ProcessorOptions): ImageProcessor 
     const height = rotated ? rawW : rawH;
 
     // 2. Identity.
-    const id = base32(createHash("sha256").update(bytes).digest()).slice(0, 16);
+    const id = computeImageId(bytes);
     if (o.dedupe ?? true) {
       const existing = await getMeta(id);
       if (existing) return existing;

@@ -1,6 +1,6 @@
 import sharp from "sharp";
 import { describe, expect, it } from "vitest";
-import { createImageProcessor, isPixstackError, type PixstackErrorCode } from "../src/index";
+import { computeImageId, createImageProcessor, isPixstackError, type PixstackErrorCode } from "../src/index";
 import { memoryStorage } from "../src/storage";
 import { makeAnimatedGif, makeJpeg, makePng, SVG } from "./helpers";
 
@@ -53,6 +53,12 @@ describe("ingest", () => {
     expect([out.width, out.height]).toEqual([200, 400]);
     expect(out.exif).toBeUndefined();
     expect(out.orientation).toBeUndefined();
+  });
+
+  it("computeImageId matches the id ingest() assigns", async () => {
+    const input = await makeJpeg(120, 80);
+    const meta = await createImageProcessor({ storage: memoryStorage(), formats: ["webp"] }).ingest(input);
+    expect(computeImageId(input)).toBe(meta.id);
   });
 
   it("dedupes identical uploads by content hash", async () => {
