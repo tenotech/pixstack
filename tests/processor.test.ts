@@ -213,3 +213,62 @@ describe("remove / reprocess / getMeta", () => {
     await expectCode(images.reprocess(meta), "NO_ORIGINAL");
   });
 });
+
+describe("sweep", () => {
+  const DAY = 24 * 60 * 60 * 1000;
+  const age = (storage: ReturnType<typeof memoryStorage>, id: string, ms: number) => {
+    for (const [k, e] of storage.entries) if (k.startsWith(`img/${id}/`) || k.startsWith(`orig/${id}.`)) e.mtime = new Date(Date.now() - ms);
+  };
+  const setup = async () => {
+    const storage = memoryStorage();
+    const images = createImageProcessor({ storage, widths: [160], formats: ["webp"] });
+    const [a, b, c] = await Promise.all([1, 2, 3].map(async (seed) => images.ingest(await makeJpeg(300, 200, { seed }))));
+    return { storage, images, a: a!, b: b!, c: c! };
+  };
+
+  it("removes unreferenced images past the grace period, with their originals", async () => {
+    const { storage, images, a, b, c } = await setup();
+    age(storage, a.id, 2 * DAY);
+    age(storage, b.id, 2 * DAY);
+    // c is unreferenced but fresh (an upload whose record is not saved yet).
+    const dry = await images.sweep({ keep: [b.id], dryRun: true });
+    expect(dry).toMatchObject({ removed: [a.id], kept: 1, recent: 1 });
+    expect(dry.bytes).toBeGreaterThan(0);
+    expect(await images.getMeta(a.id)).not.toBeNull(); // dry run deleted nothing
+
+    const res = await images.sweep({ keep: [b.id] });
+    expect(res.removed).toEqual([a.id]);
+    expect([...storage.entries.keys()].filter((k) => k.includes(a.id))).toEqual([]);
+    expect(await images.getMeta(b.id)).not.toBeNull();
+    expect(await images.getMeta(c.id)).not.toBeNull();
+    expect(storage.entries.has(b.original!)).toBe(true);
+  });
+
+  it("refuses an empty keep list unless allowed, and never touches keys that aren't image ids", async () => {
+    const { storage, images, a } = await setup();
+    await expect(images.sweep({ keep: [] })).rejects.toThrow(/empty `keep`/);
+    await storage.put("img/not-an-id/x.webp", new Uint8Array([1]), { contentType: "image/webp" });
+    await storage.put("orig/readme.txt", new Uint8Array([1]), { contentType: "text/plain" });
+    for (const e of storage.entries.values()) e.mtime = new Date(0);
+    const res = await images.sweep({ keep: [], allowEmptyKeep: true });
+    expect(res.removed).toHaveLength(3);
+    expect(await images.getMeta(a.id)).toBeNull();
+    expect([...storage.entries.keys()].sort()).toEqual(["img/not-an-id/x.webp", "orig/readme.txt"]);
+  });
+
+  it("an orphan uploaded again is fresh again (dedupe refreshes it)", async () => {
+    const { storage, images, a } = await setup();
+    age(storage, a.id, 2 * DAY);
+    const again = await images.ingest(storage.entries.get(a.original!)!.data);
+    expect(again.id).toBe(a.id);
+    const res = await images.sweep({ keep: ["aaaaaaaaaaaaaaaa"] });
+    expect(res.removed).not.toContain(a.id);
+    expect(await images.getMeta(a.id)).not.toBeNull();
+  });
+
+  it("needs a storage that can list", async () => {
+    const { list: _list, ...noList } = memoryStorage();
+    const images = createImageProcessor({ storage: noList });
+    await expect(images.sweep({ keep: ["x"] })).rejects.toThrow(/list\(\)/);
+  });
+});

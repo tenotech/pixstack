@@ -81,7 +81,7 @@ A ref (`/img/<id>/1280.webp?pv=1&w=…`, ~120–190 characters) fits any text co
 
 Two consequences of content addressing:
 - **Copying is free:** a duplicated record can reuse the same ref.
-- **Deleting needs care:** another record may share the file. Make `delete(ref)` a no-op and reclaim unused files with a periodic sweep.
+- **Deleting needs care:** another record may share the file. Make `delete(ref)` a no-op and reclaim unused files with `images.sweep({ keep })`, fed with the ids of every image column (`parseImageRef(url)?.id`). Run it with `dryRun: true` first and read the count.
 
 ### 4. Serve `/img/`
 

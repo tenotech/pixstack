@@ -14,7 +14,7 @@ import {
   type SourceFormat,
   type Variant,
 } from "./meta.js";
-import type { Storage } from "./storage/types.js";
+import type { ListedObject, Storage } from "./storage/types.js";
 import { base32, createLimiter, readAll, toBytes, type ImageInput } from "./util.js";
 
 export interface WebpSettings {
@@ -82,7 +82,41 @@ export interface ImageProcessor {
   remove(meta: ImageMeta | string): Promise<void>;
   /** Read the stored meta for an id (written at ingest time). */
   getMeta(id: string): Promise<ImageMeta | null>;
+  /**
+   * Delete stored images that no record references any more. Needs a storage
+   * with `list()`. Images touched within `olderThan` are always kept, so an
+   * upload whose record is not saved yet survives.
+   */
+  sweep(options: SweepOptions): Promise<SweepResult>;
 }
+
+export interface SweepOptions {
+  /** Ids your records still reference, e.g. `parseImageRef(url)?.id` or `meta.id` from every image column. */
+  keep: Iterable<string>;
+  /** Only images untouched for this long (ms) are removed. Default 24 h. */
+  olderThan?: number;
+  /** Report what would be removed without deleting anything. Default false. */
+  dryRun?: boolean;
+  /**
+   * Allow an empty `keep`, which removes every image older than `olderThan`.
+   * Default false: an empty list is far more often a broken query than intent.
+   */
+  allowEmptyKeep?: boolean;
+}
+
+export interface SweepResult {
+  /** Ids removed (or that would be, with `dryRun`). */
+  removed: string[];
+  /** Bytes freed (or that would be). */
+  bytes: number;
+  /** Stored ids found in `keep`. */
+  kept: number;
+  /** Unreferenced ids skipped because they were touched within `olderThan`. */
+  recent: number;
+}
+
+/** Default sweep grace period: covers an upload sitting in an unsaved form for a working day. */
+const SWEEP_GRACE_MS = 24 * 60 * 60 * 1000;
 
 const DEFAULT_WEBP: Required<Omit<WebpSettings, "alphaQuality" | "lossless">> = {
   quality: 78,
@@ -277,7 +311,12 @@ export function createImageProcessor(options: ProcessorOptions): ImageProcessor 
     const id = computeImageId(bytes);
     if (o.dedupe ?? true) {
       const existing = await getMeta(id);
-      if (existing) return existing;
+      if (existing) {
+        // Re-written so its mtime counts as a fresh upload: a sweep must not
+        // remove an orphaned image that was just uploaded again.
+        await putMeta(existing);
+        return existing;
+      }
     }
 
     // 3. Encode now; deferred formats come later via complete().
@@ -420,6 +459,43 @@ export function createImageProcessor(options: ProcessorOptions): ImageProcessor 
         await Promise.all(meta.variants.filter((v) => !keep.has(v.key)).map((v) => storage.delete(v.key)));
         return next;
       });
+    },
+
+    async sweep({ keep, olderThan = SWEEP_GRACE_MS, dryRun = false, allowEmptyKeep = false }) {
+      const list = storage.list?.bind(storage);
+      if (!list) throw new TypeError("pixstack: sweep() needs a storage with list()");
+      const keepSet = new Set(keep);
+      if (keepSet.size === 0 && !allowEmptyKeep) {
+        throw new TypeError("pixstack: sweep() got an empty `keep` (pass allowEmptyKeep: true if that is intended)");
+      }
+
+      const found = new Map<string, { newest: number; bytes: number; originals: string[] }>();
+      const note = (id: string | undefined, o: ListedObject, original: boolean) => {
+        if (!id || !ID_PATTERN.test(id)) return; // not ours: never touched
+        const e = found.get(id) ?? { newest: 0, bytes: 0, originals: [] };
+        e.newest = Math.max(e.newest, o.mtime.getTime());
+        e.bytes += o.size;
+        if (original) e.originals.push(o.key);
+        found.set(id, e);
+      };
+      for await (const o of list("img/")) note(o.key.split("/")[1], o, false);
+      for await (const o of list("orig/")) note(o.key.slice("orig/".length).split(".")[0], o, true);
+
+      const now = Date.now();
+      const result: SweepResult = { removed: [], bytes: 0, kept: 0, recent: 0 };
+      for (const [id, e] of found) {
+        if (keepSet.has(id)) result.kept++;
+        else if (now - e.newest < olderThan) result.recent++;
+        else {
+          result.removed.push(id);
+          result.bytes += e.bytes;
+          if (!dryRun) {
+            await storage.deletePrefix(`img/${id}/`);
+            await Promise.all(e.originals.map((k) => storage.delete(k)));
+          }
+        }
+      }
+      return result;
     },
 
     async remove(metaOrId) {

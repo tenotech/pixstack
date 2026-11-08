@@ -22,7 +22,7 @@ The API gets validated by migrating existing production apps (e-commerce storefr
 - [x] Pilot fixes: denser default width ladder, `isImageRef` returns `boolean`, `computeImageId`
 - [x] 0.3.1: `priority` images are preloaded in `<head>` (typed AVIF), found by a storefront's loading test that `next/image` passed
 - [x] Production results after deploy: first-visit LCP 6.26 s → 1.07 s, slowest image 5.95 s → 0.33 s (see [adoption.md](adoption.md))
-- [ ] `sweep`: reclaim stored images no record references (deletes are deferred because files are shared)
+- [x] 0.4.0: `sweep({ keep, olderThan, dryRun })` reclaims stored images no record references (24 h grace, refuses an empty `keep`); `Storage.list()` on disk, memory and S3
 
 - [ ] `pixstack/client`: `prepareUpload()` to downscale in the browser / Expo before upload
 - [ ] `pixstack/next`: `next/image` loader that points at stored variants

@@ -3,6 +3,7 @@ export { memoryStorage } from "./memory.js";
 export {
   assertSafeKey,
   type ByteRange,
+  type ListedObject,
   type PutOptions,
   type Storage,
   type StoredObject,

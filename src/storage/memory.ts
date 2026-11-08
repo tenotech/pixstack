@@ -1,4 +1,4 @@
-import { assertSafeKey, assertSafePrefix, type ByteRange, type PutOptions, type Storage, type StoredObject } from "./types.js";
+import { assertSafeKey, assertSafePrefix, type ByteRange, type ListedObject, type PutOptions, type Storage, type StoredObject } from "./types.js";
 
 interface Entry {
   data: Uint8Array;
@@ -43,6 +43,12 @@ export function memoryStorage(): Storage & { entries: Map<string, Entry> } {
     async deletePrefix(prefix: string) {
       assertSafePrefix(prefix);
       for (const k of [...entries.keys()]) if (k.startsWith(prefix)) entries.delete(k);
+    },
+    async *list(prefix: string): AsyncIterable<ListedObject> {
+      assertSafePrefix(prefix);
+      for (const [key, e] of [...entries]) {
+        if (key.startsWith(prefix)) yield { key, size: e.data.byteLength, mtime: e.mtime };
+      }
     },
   };
 }

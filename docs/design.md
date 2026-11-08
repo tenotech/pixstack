@@ -95,6 +95,8 @@ Many existing apps already store images in a `String` column (`imageUrl`). Movin
 | `concurrency` | `2` | Max ingests running at once per process. sharp's internal thread pool is also capped. |
 | `defer` | `[]` | Formats to skip in `ingest()` and produce later with `complete()`. Not on by default because it needs a second save of the meta. `["avif"]` is recommended for interactive uploads: ingest is 4.5–5× faster (measured: 3.7 s → 0.8 s on a 2 MB PNG hero). |
 | `backgroundConcurrency` | `1` | `complete()` jobs run in their own queue, so background AVIF never delays uploads. |
+| `sweep` `olderThan` | 24 h | An upload is stored before its record is saved (an admin form can stay open for hours), so a fresh unreferenced image is usually a draft, not an orphan. A day covers a working session; orphans waiting one more day cost only disk. A dedupe hit rewrites `meta.json`, so re-uploading an old orphan restarts its clock. |
+| `sweep` empty `keep` | refused | An empty list is far more often a broken query (wrong column, empty table in the wrong database) than intent, and it would delete every image. Pass `allowEmptyKeep: true` to mean it. |
 
 The output is always 8-bit sRGB with metadata stripped. Wide-gamut (P3) photos are converted to sRGB *(phase 2: keep P3 with an embedded profile when `colorSpace: "p3"`)*.
 
@@ -130,6 +132,7 @@ export const images = createImageProcessor({ storage });
 
 const meta = await images.ingest(await file.arrayBuffer());  // → ImageMeta
 await images.remove(meta);                                    // deletes variants + original
+await images.sweep({ keep: idsInUse });                       // deletes images no record references (24 h grace)
 await images.reprocess(meta, { formats: ["avif", "webp"] });  // from orig/
 
 // fast uploads: WebP now, AVIF in the background
@@ -154,6 +157,7 @@ interface Storage {
   head(key: string): Promise<{ size: number; mtime: Date } | null>;
   delete(key: string): Promise<void>;
   deletePrefix(prefix: string): Promise<void>;
+  list?(prefix: string): AsyncIterable<{ key: string; size: number; mtime: Date }>;  // needed by sweep()
   publicUrl?(key: string): string | null;  // set when a CDN/nginx serves keys directly
 }
 ```

@@ -152,7 +152,14 @@ await db.category.update({ where: { id }, data: { imageUrl: ref } });
 
 Old code that does `<img src={imageUrl}>` keeps working, because the ref points at a real 1280px WebP. Use `isImageRef(url)` to tell refs apart from legacy URLs while you migrate.
 
-> **Identical files share one URL.** pixstack names files by their content, so the same photo uploaded twice (say, one shot used for two colour variants) gives the same ref. Don't use the image URL alone as a React `key`, and don't delete stored files when one record drops a ref: another record may still use it. Reclaim unused files with a sweep instead.
+> **Identical files share one URL.** pixstack names files by their content, so the same photo uploaded twice (say, one shot used for two colour variants) gives the same ref. Don't use the image URL alone as a React `key`, and don't delete stored files when one record drops a ref: another record may still use it. Reclaim unused files with `sweep()` instead:
+>
+> ```ts
+> const ids = (await db.productImage.findMany({ select: { url: true } })).map((r) => parseImageRef(r.url)?.id);
+> const { removed, bytes } = await images.sweep({ keep: ids.filter(Boolean) as string[], dryRun: true }); // look first
+> ```
+>
+> Gather ids from **every** column that holds images. Images touched in the last 24 h are kept, so uploads whose record isn't saved yet survive.
 
 ## Store on S3 / Cloudflare R2
 
@@ -233,7 +240,7 @@ Errors are `PixstackError`s with a `code` (`TOO_LARGE`, `TOO_MANY_PIXELS`, `UNSU
 
 | Import | For |
 |---|---|
-| `pixstack` | `createImageProcessor`: `ingest`, `reprocess`, `remove`, `getMeta` |
+| `pixstack` | `createImageProcessor`: `ingest`, `complete`, `reprocess`, `remove`, `sweep`, `getMeta` |
 | `pixstack/storage` | `diskStorage`, `memoryStorage`, the `Storage` interface |
 | `pixstack/storage/s3` | `s3Storage` for AWS S3, Cloudflare R2, MinIO (needs `@aws-sdk/client-s3`) |
 | `pixstack/server` | `createImageHandler` (Web `Request → Response`; works in Next, Hono, Bun, Deno), `signUrl` |

@@ -18,7 +18,7 @@ import {
   PutObjectCommand,
   type S3Client,
 } from "@aws-sdk/client-s3";
-import { assertSafeKey, assertSafePrefix, type ByteRange, type PutOptions, type Storage, type StoredObject } from "./types.js";
+import { assertSafeKey, assertSafePrefix, type ByteRange, type ListedObject, type PutOptions, type Storage, type StoredObject } from "./types.js";
 
 export interface S3StorageOptions {
   client: S3Client;
@@ -123,6 +123,21 @@ export function s3Storage(options: S3StorageOptions): Storage {
           if (res.Errors?.length) {
             throw new Error(`S3 deletePrefix failed for ${res.Errors.length} keys: ${res.Errors[0]?.Message ?? ""}`);
           }
+        }
+        token = page.IsTruncated ? page.NextContinuationToken : undefined;
+      } while (token);
+    },
+
+    async *list(p: string): AsyncIterable<ListedObject> {
+      assertSafePrefix(p);
+      let token: string | undefined;
+      do {
+        const page = await client.send(
+          new ListObjectsV2Command({ Bucket: bucket, Prefix: prefix + p, ContinuationToken: token }),
+        );
+        for (const o of page.Contents ?? []) {
+          if (!o.Key) continue;
+          yield { key: o.Key.slice(prefix.length), size: o.Size ?? 0, mtime: o.LastModified ?? new Date(0) };
         }
         token = page.IsTruncated ? page.NextContinuationToken : undefined;
       } while (token);

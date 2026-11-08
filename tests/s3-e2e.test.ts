@@ -9,7 +9,9 @@ describe.skipIf(!process.env.PIXSTACK_S3_ENDPOINT)("S3 end to end", () => {
     const images = createImageProcessor({ storage, defer: ["avif"] });
     const meta = await images.ingest(await makeJpeg(900, 600));
     const done = await images.complete(meta);
-    expect(done.variants.filter((v) => v.format === "avif")).toHaveLength(3);
+    const avif = done.variants.filter((v) => v.format === "avif").map((v) => v.width);
+    expect(avif.length).toBeGreaterThan(1);
+    expect(avif).toEqual(done.variants.filter((v) => v.format === "webp").map((v) => v.width));
 
     const handler = createImageHandler({ storage });
     const v = done.variants.find((x) => x.format === "avif" && x.width === 640)!;

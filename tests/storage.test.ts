@@ -54,6 +54,28 @@ describe.each(drivers)("%s storage", (_name, make) => {
     await expect(s.deletePrefix("img/a")).rejects.toThrow();
   });
 
+  it("lists keys by prefix, with size and mtime", async () => {
+    const s = await make();
+    await s.put("img/a/1.webp", bytes, { contentType: "x" });
+    await s.put("img/a/sub/2.webp", bytes.subarray(0, 3), { contentType: "x" });
+    await s.put("orig/a.jpg", bytes, { contentType: "x" });
+    const got: { key: string; size: number }[] = [];
+    for await (const o of s.list!("img/")) {
+      expect(o.mtime).toBeInstanceOf(Date);
+      got.push({ key: o.key, size: o.size });
+    }
+    expect(got.sort((x, y) => x.key.localeCompare(y.key))).toEqual([
+      { key: "img/a/1.webp", size: 10 },
+      { key: "img/a/sub/2.webp", size: 3 },
+    ]);
+    const none: string[] = [];
+    for await (const o of s.list!("nothing/")) none.push(o.key);
+    expect(none).toEqual([]);
+    await expect(async () => {
+      for await (const _ of s.list!("../")) void _;
+    }).rejects.toThrow();
+  });
+
   it("rejects unsafe keys", async () => {
     const s = await make();
     for (const k of ["../x", "img/../../x", "/abs", "img//x", "IMG/x", "img/x\\y", "", "img/./x"]) {

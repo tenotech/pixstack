@@ -23,6 +23,12 @@ export interface StoredObject {
   range?: ByteRange;
 }
 
+export interface ListedObject {
+  key: string;
+  size: number;
+  mtime: Date;
+}
+
 export interface Storage {
   put(key: string, data: Uint8Array, options: PutOptions): Promise<void>;
   get(key: string, range?: ByteRange): Promise<StoredObject | null>;
@@ -30,6 +36,12 @@ export interface Storage {
   delete(key: string): Promise<void>;
   /** Delete every key starting with `prefix` (which must end with "/"). */
   deletePrefix(prefix: string): Promise<void>;
+  /**
+   * Every key starting with `prefix` (which must end with "/"), in no
+   * particular order. Optional, so drivers written before 0.4 still type-check;
+   * `sweep()` needs it.
+   */
+  list?(prefix: string): AsyncIterable<ListedObject>;
   /** When keys are served directly (CDN, nginx alias), the public URL for a key. */
   publicUrl?(key: string): string | null;
 }
