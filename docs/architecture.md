@@ -37,17 +37,20 @@ pixstack takes an uploaded image, processes it once, stores ready-to-serve files
 
 | Import | Runs on | Depends on | Job |
 |---|---|---|---|
-| `pixstack` / `pixstack/core` | Node ≥ 20 | `sharp` (peer), `thumbhash` | `createImageProcessor()`: validate, process, build `ImageMeta`, write through storage |
+| `pixstack` / `pixstack/core` | Node ≥ 22 | `sharp` (peer), `thumbhash` | `createImageProcessor()`: validate, process, build `ImageMeta`, write through storage |
 | `pixstack/storage` | Node | none | `Storage` interface; `diskStorage`, `memoryStorage` |
 | `pixstack/storage/s3` | any runtime the AWS SDK supports | `@aws-sdk/client-s3` (optional peer) | `s3Storage` for AWS S3, Cloudflare R2, MinIO and others. It writes `Cache-Control` on each object, so a CDN in front of the bucket caches correctly. |
-| `pixstack/server` | any Web-standard runtime (Node 20+, Bun, Deno, edge) | none | `createImageHandler()`: `(Request) => Response`; `signUrl()` / `verifySignature()` |
+| `pixstack/server` | any Web-standard runtime (Node 22+, Bun, Deno, edge) | none | `createImageHandler()`: `(Request) => Response`; `signUrl()` / `verifySignature()` |
 | `pixstack/react` | React 18/19, server or client | `react` (peer), `thumbhash` | `<Img>`, `getImageProps()`, `placeholderStyle()` |
 | `pixstack/meta` | anywhere | none | `ImageMeta` types, `pickVariant()`, `srcSet()`, URL builder |
-| `pixstack/client` *(phase 2)* | browser, Expo | none | `prepareUpload()`: downscale before upload |
-| `pixstack/next` *(phase 2)* | Next.js | `next` (peer) | `next/image` loader pointing at stored variants |
-| `pixstack` CLI *(phase 3)* | Node | core | backfill, migrate, audit, delete orphans |
+| `pixstack/client` | browser (Expo via `targetSize`) | none | `prepareUpload()`: downscale before upload |
+| `pixstack/next` | Next.js | none (imports `meta` only) | `next/image` loader pointing at stored variants |
+| `pixstack/node` | Node | none | `toNodeHandler()`: the Web handler on `node:http`, Express, Fastify |
+| `pixstack` CLI | Node | core | `ingest` (backfill), `complete`, `reprocess`, `audit`, `sweep`, `ref` |
 
-Rule: `meta` is pure and dependency-free. `react` and `server` import only `meta`. Only `core` touches sharp, so a frontend bundle never pulls in native code.
+Rule: `meta` is pure and dependency-free. `react`, `server`, `next` and `client` import only `meta` (enforced by `tests/boundaries.test.ts` on the sources and `scripts/check-dist.mjs` on the build).
+
+`<Img priority>` renders a tiny Client Component (`react-preload`, its own file with `"use client"`) that calls `ReactDOM.preload()`. Called from a Server Component instead, the hint only reaches the RSC payload on pages that await data, and the browser sees it after hydration. Only `core` touches sharp, so a frontend bundle never pulls in native code.
 
 ## Data model: one JSON column
 

@@ -1,6 +1,6 @@
 {
   "name": "pixstack",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Self-hosted image pipeline: validate, compress to AVIF/WebP width ladders, store, serve with immutable caching, render with srcset and thumbhash placeholders.",
   "license": "MIT",
   "repository": {
@@ -12,12 +12,14 @@
   "type": "module",
   "sideEffects": false,
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "files": [
     "dist",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "CHANGELOG.md",
+    "SECURITY.md"
   ],
   "exports": {
     ".": {
@@ -44,16 +46,33 @@
       "types": "./dist/react.d.ts",
       "default": "./dist/react.js"
     },
+    "./node": {
+      "types": "./dist/node.d.ts",
+      "default": "./dist/node.js"
+    },
+    "./next": {
+      "types": "./dist/next.d.ts",
+      "default": "./dist/next.js"
+    },
+    "./client": {
+      "types": "./dist/client.d.ts",
+      "default": "./dist/client.js"
+    },
     "./package.json": "./package.json"
   },
+  "bin": {
+    "pixstack": "./dist/cli.js"
+  },
   "scripts": {
-    "build": "tsup",
+    "build": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\" && tsup",
     "dev": "tsup --watch",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
-    "check": "pnpm check:private && pnpm typecheck && pnpm test && pnpm build",
-    "check:private": "node scripts/check-private.mjs"
+    "check": "pnpm check:private && pnpm typecheck && pnpm test && pnpm build && pnpm check:dist",
+    "check:private": "node scripts/check-private.mjs",
+    "bench": "node scripts/bench.mjs",
+    "check:dist": "node scripts/check-dist.mjs"
   },
   "peerDependencies": {
     "@aws-sdk/client-s3": "^3",
@@ -87,7 +106,10 @@
     "thumbhash",
     "upload",
     "self-hosted",
-    "nextjs"
+    "nextjs",
+    "cli",
+    "express",
+    "next-image-loader"
   ],
   "devDependencies": {
     "@aws-sdk/client-s3": "^3.1164.0",

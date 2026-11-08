@@ -1,0 +1,87 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: check (${{ matrix.os }}, Node ${{ matrix.node }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        node: [22, 24]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.32.1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # typecheck, tests (S3 tests skip without an endpoint), build, dist checks
+      - run: pnpm check
+
+  s3:
+    name: S3 storage (S3Mock)
+    runs-on: ubuntu-latest
+    services:
+      s3mock:
+        image: adobe/s3mock:4.7.0
+        env:
+          COM_ADOBE_TESTING_S3MOCK_STORE_INITIAL_BUCKETS: pixstack
+        ports:
+          - 19090:9090
+    env:
+      PIXSTACK_S3_ENDPOINT: http://localhost:19090
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.32.1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Wait for S3Mock
+        run: for i in $(seq 60); do curl -sf http://localhost:19090 >/dev/null && exit 0; sleep 1; done; exit 1
+      - run: pnpm vitest run tests/storage.test.ts tests/s3-e2e.test.ts
+
+  examples:
+    name: examples build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.32.1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - name: Next.js example builds against the local package
+        working-directory: examples/next
+        run: pnpm install --no-frozen-lockfile && pnpm build
+      - name: Hono example starts and serves an upload
+        working-directory: examples/hono
+        run: |
+          pnpm install --no-frozen-lockfile
+          PORT=3917 MEDIA_DIR=$RUNNER_TEMP/media pnpm start &
+          for i in $(seq 30); do curl -sf http://localhost:3917/ >/dev/null && break; sleep 1; done
+          node -e "require('sharp')({create:{width:800,height:500,channels:3,background:'#3a7'}}).jpeg().toFile('$RUNNER_TEMP/a.jpg')"
+          curl -sf -F "image=@$RUNNER_TEMP/a.jpg" http://localhost:3917/upload | tee /dev/stderr | grep -q '"ref"'

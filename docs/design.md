@@ -98,6 +98,22 @@ Many existing apps already store images in a `String` column (`imageUrl`). Movin
 | `sweep` `olderThan` | 24 h | An upload is stored before its record is saved (an admin form can stay open for hours), so a fresh unreferenced image is usually a draft, not an orphan. A day covers a working session; orphans waiting one more day cost only disk. A dedupe hit rewrites `meta.json`, so re-uploading an old orphan restarts its clock. |
 | `sweep` empty `keep` | refused | An empty list is far more often a broken query (wrong column, empty table in the wrong database) than intent, and it would delete every image. Pass `allowEmptyKeep: true` to mean it. |
 
+### Measured: bytes vs quality (`pnpm bench`)
+
+88 storefront photos (products and interiors), resized to 1280 px, encoded with the processor's settings, SSIM on luma against the resized source:
+
+| Setting | Median KB | Mean KB | Mean SSIM | Worst SSIM | Encode ms |
+|---|---|---|---|---|---|
+| WebP q70 | 40.7 | 54.4 | 0.9761 | 0.9506 | 246 |
+| **WebP q78 (default)** | 48.4 | 64.5 | 0.9847 | 0.9755 | 250 |
+| WebP q85 | 59.3 | 77.9 | 0.9905 | 0.9834 | 250 |
+| AVIF q46 | 20.9 | 26.9 | 0.9617 | 0.8526 | 738 |
+| **AVIF q52 (default)** | 28.3 | 35.5 | 0.9717 | 0.8992 | 811 |
+| AVIF q58 | 35.0 | 44.2 | 0.9781 | 0.9371 | 877 |
+| AVIF q64 | 43.9 | 55.4 | 0.9833 | 0.9613 | 958 |
+
+**Open question.** By SSIM, AVIF q52 is *not* at parity with WebP q78 as the table above assumed: parity is near q64, only ~14% smaller than WebP. SSIM is known to over-penalise AVIF's smoothing (it reads blur as damage more than the eye does), so the defaults are unchanged until a perceptual metric (SSIMULACRA2 or butteraugli) is added to the bench. If that confirms the gap, q58 is the likely new default (+25% bytes over q52, still ~31% under WebP).
+
 The output is always 8-bit sRGB with metadata stripped. Wide-gamut (P3) photos are converted to sRGB *(phase 2: keep P3 with an embedded profile when `colorSpace: "p3"`)*.
 
 ### Algorithm
@@ -195,13 +211,32 @@ Signed URLs: `signUrl("/img/orig/abc.jpg", { secret, expiresIn: 3600 })` → `?e
 - The placeholder is the thumbhash decoded to a ~32px PNG data URL (≈ 300–600 bytes inline) over the dominant colour. Pass `placeholder="color"` for colour only, or `"none"`.
 - `urlFor(key)` defaults to `/img/<key without "img/">`. Override it for a CDN (`https://cdn.example.com/${key}`).
 
-### `pixstack/next` *(phase 2)*
+### `pixstack/next`
 
-A custom `next/image` loader for projects that want to keep `<Image>`: `src` = `pixstack:<id>` and the loader picks the nearest ladder width. It removes `/_next/image` from the hot path (and with it the optimizer CVEs). `<Img>` is still preferred because it knows the real variant list.
+A custom `next/image` loader for code that keeps `<Image>`: `src` is an ImageRef and the loader returns the smallest stored variant at least as wide as each width Next asks for. `/_next/image` leaves the hot path (and with it the optimizer CVEs). `<Img>` is still preferred: a loader returns one URL per width, so it cannot offer AVIF with a WebP fallback.
 
-### `pixstack/client` *(phase 2)*
+| Option | Default | Why |
+|---|---|---|
+| `format` | `"webp"` | A loader cannot negotiate formats, and WebP decodes everywhere. AVIF saves ~20–30% but a few percent of browsers would get a broken image. |
+| `fallback` | `src` + `?w=<width>` | Non-ref URLs (static files, legacy uploads) keep working; static servers ignore the query, and Next's "loader ignores width" check stays quiet. |
 
-`prepareUpload(file, { maxEdge: 2560, quality: 0.85 })` in the browser: `createImageBitmap(file, { imageOrientation: "from-image" })` → `OffscreenCanvas` → WebP/JPEG `Blob`. Typically shrinks a 12 MB phone photo to ~800 KB before upload. The server still does full validation.
+### `pixstack/client`
+
+`prepareUpload(file)` in the browser: `createImageBitmap(file, { imageOrientation: "from-image" })` → `OffscreenCanvas` (or `<canvas>`) → JPEG, or WebP for formats that may carry alpha (PNG when the browser cannot encode WebP). Returns the input untouched when nothing is gained. The server still does full validation; this is a speed-up, not a security boundary. Expo has no canvas: `targetSize(w, h)` gives the size to pass to `expo-image-manipulator`.
+
+| Option | Default | Why |
+|---|---|---|
+| `maxSize` | 2560 px (longest side) | The largest default ladder width: anything above is never served. |
+| `maxBytes` | 4 MB | Within `maxSize`, re-encoding a normal photo only loses quality; a file this large is usually a PNG screenshot or an uncompressed export, where it saves real upload time. |
+| `quality` | 0.9 | The server re-encodes, so this is a near-lossless intermediate: lower would stack two lossy steps. |
+
+### `pixstack/node`
+
+`toNodeHandler(handler)` builds a Web `Request` from `IncomingMessage` (using Express's `originalUrl` when present, aborting on client disconnect) and streams the `Response` back. With a `next` callback, 404s fall through like `express.static` (`fallthrough: false` to answer them).
+
+### CLI
+
+`pixstack <ingest|complete|reprocess|audit|sweep|ref>` on `--root <dir>` or `--s3-bucket`. Machine-readable output (one JSON line per item on stdout, the summary on stderr), exit code 1 when an item failed or `audit` found issues, 2 for usage errors. `sweep` is a dry run unless `--yes`.
 
 ## Decisions
 

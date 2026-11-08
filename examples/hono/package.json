@@ -1,0 +1,17 @@
+{
+  "name": "pixstack-example-hono",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "tsx server.ts"
+  },
+  "dependencies": {
+    "@hono/node-server": "^2.1.6",
+    "hono": "^4.13.17",
+    "pixstack": "file:../..",
+    "sharp": "^0.35.5"
+  },
+  "devDependencies": {
+    "tsx": "^4.23.15"
+  }
+}

@@ -1,0 +1,48 @@
+name: Release
+
+# Push a tag that matches package.json, e.g. `git tag v0.5.0 && git push origin v0.5.0`.
+# Publishes to npm with provenance. Set up once on npmjs.com: package settings →
+# Trusted publishing → GitHub Actions, repository tenotech/pixstack, workflow
+# release.yml. (For the very first publish, before the package exists, add an
+# NPM_TOKEN repository secret instead; it is used when present.)
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write # GitHub release
+  id-token: write # npm provenance / trusted publishing
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.32.1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+      - name: Tag matches package.json
+        run: |
+          v=$(node -p "require('./package.json').version")
+          [ "v$v" = "$GITHUB_REF_NAME" ] || { echo "tag $GITHUB_REF_NAME != package.json v$v"; exit 1; }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm check
+      - run: npm install -g npm@11.6.2 # trusted publishing needs npm >= 11.5
+      - name: Publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          tag=latest
+          case "$GITHUB_REF_NAME" in *-*) tag=next ;; esac
+          npm publish --provenance --access public --tag "$tag"
+      - name: GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          notes=$(awk -v v="## ${GITHUB_REF_NAME#v}" '$0 ~ "^## " { p = index($0, v) == 1; next } p' CHANGELOG.md)
+          gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --notes "${notes:-See CHANGELOG.md}"

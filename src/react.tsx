@@ -15,6 +15,7 @@ import {
   type ImageMeta,
   type UrlFor,
 } from "./meta.js";
+import { ImagePreload, type ImagePreloadProps } from "./react-preload.js";
 
 /** An ImageMeta object, or an ImageRef string (see `toImageRef`). */
 export type ImageSource = ImageMeta | string;
@@ -129,39 +130,36 @@ export type ImgProps = ImageOptions &
     image: ImageSource;
   };
 
-type PreloadOptions = {
-  as: "image";
-  imageSrcSet?: string;
-  imageSizes?: string;
-  fetchPriority?: "high";
-  type?: string;
-};
-// React 19 API; absent in React 18, where preloading is skipped.
-const reactPreload = (ReactDOM as unknown as { preload?: (href: string, options: PreloadOptions) => void }).preload;
-
-/**
- * Ask the browser for an image before it reaches the <img> (a
- * <link rel="preload" as="image" imagesrcset … fetchpriority="high"> in <head>),
- * as next/image does for `priority`. Preloads the best format with its `type`, so
- * a browser without AVIF skips the hint instead of downloading twice.
- * No-op outside React 19.
- */
-export function preloadImage(props: ImageProps): void {
-  if (typeof reactPreload !== "function") return;
+/** The preload hint for a priority image: the best format, typed, with its srcset. */
+export function preloadProps(props: ImageProps): ImagePreloadProps {
   const best = props.sources[0] ?? { type: undefined, srcSet: props.img.srcSet, sizes: props.img.sizes };
   const candidates = best.srcSet.split(", ").map((c) => {
     const [url, w] = c.split(" ");
     return { url: url!, w: Number.parseInt(w ?? "0", 10) };
   });
   const href = (candidates.find((c) => c.w >= 1280) ?? candidates[candidates.length - 1])?.url ?? props.img.src;
-  reactPreload(href, {
-    as: "image",
+  return {
+    href,
     imageSrcSet: best.srcSet,
     imageSizes: best.sizes,
-    fetchPriority: "high",
     ...(best.type ? { type: best.type } : {}),
-  });
+  };
 }
+
+/**
+ * Ask the browser for an image before it reaches the <img> (a
+ * <link rel="preload" as="image" imagesrcset … fetchpriority="high"> in <head>),
+ * as next/image does for `priority`. For your own Client Components; `<Img priority>`
+ * already does it. No-op outside React 19.
+ */
+export function preloadImage(props: ImageProps): void {
+  const preload = (ReactDOM as unknown as { preload?: (href: string, o: object) => void }).preload;
+  if (typeof preload !== "function") return;
+  const { href, ...rest } = preloadProps(props);
+  preload(href, { as: "image", fetchPriority: "high", ...rest });
+}
+
+export { ImagePreload, type ImagePreloadProps };
 
 /**
  * <Img image={meta} alt="…" sizes="(min-width: 768px) 33vw, 100vw" />
@@ -176,15 +174,24 @@ export function Img({ image, alt, sizes, priority, placeholder, urlFor, style, .
     ...(placeholder !== undefined ? { placeholder } : {}),
     ...(urlFor !== undefined ? { urlFor } : {}),
   });
-  if (priority) preloadImage(props);
   const img = <img {...props.img} {...rest} style={{ ...props.img.style, ...style }} />;
-  if (props.sources.length === 0) return img;
+  const picture =
+    props.sources.length === 0 ? (
+      img
+    ) : (
+      <picture>
+        {props.sources.map((s) => (
+          <source key={s.type} type={s.type} srcSet={s.srcSet} sizes={s.sizes} />
+        ))}
+        {img}
+      </picture>
+    );
+  if (!priority) return picture;
+  // A Client Component, so the hint reaches <head> on dynamic pages too (see react-preload.tsx).
   return (
-    <picture>
-      {props.sources.map((s) => (
-        <source key={s.type} type={s.type} srcSet={s.srcSet} sizes={s.sizes} />
-      ))}
-      {img}
-    </picture>
+    <>
+      <ImagePreload {...preloadProps(props)} />
+      {picture}
+    </>
   );
 }

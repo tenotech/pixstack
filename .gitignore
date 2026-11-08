@@ -8,3 +8,9 @@ tests/.tmp
 # Private notes, client project names, migration plans. Never published.
 .private/
 CLAUDE.local.md
+
+# Examples: installed against the local build, so their lockfiles and outputs stay local.
+examples/*/pnpm-lock.yaml
+examples/*/.next
+examples/*/media
+examples/*/next-env.d.ts

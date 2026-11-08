@@ -245,7 +245,51 @@ Errors are `PixstackError`s with a `code` (`TOO_LARGE`, `TOO_MANY_PIXELS`, `UNSU
 | `pixstack/storage/s3` | `s3Storage` for AWS S3, Cloudflare R2, MinIO (needs `@aws-sdk/client-s3`) |
 | `pixstack/server` | `createImageHandler` (Web `Request → Response`; works in Next, Hono, Bun, Deno), `signUrl` |
 | `pixstack/react` | `<Img>`, `getImageProps`, `placeholderStyle` |
-| `pixstack/meta` | `ImageMeta` types, `srcSet`, `pickVariant`, `widthLadder` (no dependencies) |
+| `pixstack/meta` | `ImageMeta` types, refs, `srcSet`, `pickVariant`, `widthLadder` (no dependencies) |
+| `pixstack/node` | `toNodeHandler`: the image handler on `node:http`, Express, Connect, Fastify |
+| `pixstack/next` | A `next/image` loader for refs, for code that keeps `<Image>` |
+| `pixstack/client` | `prepareUpload`: shrink photos in the browser before upload; `targetSize` for Expo |
+| `pixstack` (CLI) | `ingest`, `complete`, `reprocess`, `audit`, `sweep`, `ref` on disk or S3 storage |
+
+### Express / Fastify
+
+```ts
+import { toNodeHandler } from "pixstack/node";
+const node = toNodeHandler(createImageHandler({ storage }));
+app.use(node); // Express: unknown keys fall through to next()
+fastify.get("/img/*", (req, reply) => { reply.hijack(); return node(req.raw, reply.raw); });
+```
+
+### Keep `next/image`
+
+```ts
+// image-loader.ts
+export { default } from "pixstack/next";
+// next.config.ts
+images: { loader: "custom", loaderFile: "./image-loader.ts" }
+```
+
+Refs then map each width to a stored WebP (`createNextLoader({ format: "avif" })` for AVIF); other URLs get `?w=`. `<Img>` stays the better choice where you can use it: it serves AVIF with a WebP fallback and draws the placeholder.
+
+### Shrink before upload
+
+```ts
+import { prepareUpload } from "pixstack/client";
+const { file } = await prepareUpload(input.files[0]); // ≤ 2560 px, EXIF dropped, untouched when nothing is gained
+```
+
+In Expo, pass `targetSize(asset.width, asset.height)` to `expo-image-manipulator`. The server validates and re-encodes everything anyway: this only saves upload time.
+
+### CLI
+
+```sh
+npx pixstack ingest ./uploads --root ./media > refs.jsonl   # backfill: one {file,id,ref} line per image
+npx pixstack audit --root ./media                           # missing variants, stray files, pending formats
+npx pixstack complete --root ./media                        # finish formats left by `defer`
+npx pixstack sweep --keep ids-in-use.txt --root ./media     # dry run; add --yes to delete
+```
+
+`--s3-bucket <name>` (with `--s3-endpoint` for R2/MinIO) works instead of `--root`.
 
 ## Docs
 
@@ -253,12 +297,15 @@ Errors are `PixstackError`s with a `code` (`TOO_LARGE`, `TOO_MANY_PIXELS`, `UNSU
 - [Design](docs/design.md): `ImageMeta`, defaults and why, API, decisions
 - [Adoption guide](docs/adoption.md): migrating an existing app (string image columns, `next/image`, Docker)
 - [Roadmap](docs/roadmap.md): what's done and what's next
+- [Changelog](CHANGELOG.md) · [Security](SECURITY.md)
+- Examples: [Next.js App Router](examples/next) · [Hono](examples/hono)
 
 ## Development
 
 ```sh
 pnpm install
-pnpm check   # typecheck + tests + build
+pnpm check   # privacy check, typecheck, tests, build, dist checks
+pnpm bench <dir-of-photos>   # bytes and SSIM per format/quality
 ```
 
 ## License

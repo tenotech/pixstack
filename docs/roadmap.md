@@ -24,16 +24,18 @@ The API gets validated by migrating existing production apps (e-commerce storefr
 - [x] Production results after deploy: first-visit LCP 6.26 s → 1.07 s, slowest image 5.95 s → 0.33 s (see [adoption.md](adoption.md))
 - [x] 0.4.0: `sweep({ keep, olderThan, dryRun })` reclaims stored images no record references (24 h grace, refuses an empty `keep`); `Storage.list()` on disk, memory and S3
 
-- [ ] `pixstack/client`: `prepareUpload()` to downscale in the browser / Expo before upload
-- [ ] `pixstack/next`: `next/image` loader that points at stored variants
-- [ ] Node `http` adapter (Express / Fastify)
-- [ ] Verified on Cloudflare R2 and AWS S3 (not just S3Mock)
-- [ ] `examples/next` (App Router) and `examples/hono`
-- [ ] Benchmark script over a public-domain photo set: bytes and SSIM per format/quality, to tune defaults with data
+- [x] 0.5.0: `pixstack/client`: `prepareUpload()` downscales in the browser before upload; `targetSize()` for Expo
+- [x] 0.5.0: `pixstack/next`: `next/image` loader that points at stored variants
+- [x] 0.5.0: `pixstack/node`: Node `http` adapter (Express / Connect / Fastify)
+- [x] 0.5.0: `examples/next` (App Router) and `examples/hono`, built in CI
+- [x] 0.5.0: `pnpm bench <dir>`: bytes and SSIM per format/quality (first results in [design.md](design.md#measured-bytes-vs-quality-pnpm-bench))
+- [x] 0.5.0: `<Img priority>` preload reaches `<head>` on dynamic pages too (it only travelled in the RSC payload)
+- [ ] Verified on Cloudflare R2 and AWS S3 (not just S3Mock): needs real buckets
+- [ ] Perceptual metric (SSIMULACRA2) in the bench, then settle the AVIF quality default (open question in design.md)
 
 ## 0.5: tooling
 
-- [ ] CLI: `pixstack backfill` (adopt existing uploads), `complete` (finish images left `pending`), `reprocess`, `audit` (orphans, missing variants), `sweep`
+- [x] 0.5.0: CLI: `pixstack ingest` (backfill a folder), `complete`, `reprocess`, `audit`, `sweep`, `ref`; disk or S3
 - [ ] Focal-point crops (`crop` hints) and art direction
 - [ ] Optional P3 output with an embedded profile
 
@@ -42,9 +44,9 @@ The API gets validated by migrating existing production apps (e-commerce storefr
 Release only after several apps have run it in production for a month.
 
 - [ ] API and `ImageMeta` v1 frozen (later changes via `v: 2` + migrate helper)
-- [ ] CI: lint, test on Linux/macOS/Windows and Node 20/22/24, S3 tests against S3Mock; changesets; npm provenance
+- [x] 0.5.0: CI on Linux/macOS/Windows × Node 22/24, S3 tests against S3Mock, examples built; tag-driven npm release with provenance
+- [x] 0.5.0: `SECURITY.md`, fuzz tests on malformed files, refs and request paths; import-boundary checks on sources and build
 - [ ] README benchmarks against `next/image` and raw uploads
-- [ ] `SECURITY.md`, fuzz tests on malformed files
 
 ## Success metrics (measured on adopters)
 
